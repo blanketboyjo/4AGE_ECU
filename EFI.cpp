@@ -6,7 +6,6 @@
 */ 
 #include "EFI.h"
 
-
 enum IgniterFSM{
   IGT_IDLE    = 0,
   IGT_WAITING = 1,
@@ -22,7 +21,8 @@ enum InjectorFSM{
 };
 
 IgniterFSM m_Igniter = IGT_IDLE;
-InjectorFSM m_Injector[4] = {   INJ_IDLE,
+InjectorFSM m_Injector[4] = {   
+  INJ_IDLE,
   INJ_IDLE,
   INJ_IDLE,
   INJ_IDLE
@@ -37,7 +37,7 @@ volatile unsigned int m_igniterStartCCR     = EFI_TCC_MAX + 1;
 volatile unsigned int m_nextNeIsStart       = 0;
 volatile          int m_currentNe           = 5;
 volatile unsigned int m_injectorNumber      = 0;
-volatile unsigned int m_injectorTargets[4]  = {2,3,0,1};
+volatile unsigned int m_injectorTargets[4]  = {3,0,1,2};
 
 
 //This function configures the necessary components of the EFI system
@@ -262,197 +262,197 @@ void EFI_TCC_NE_ISR(void){
 
   //Only calculate RPM if this is not the first pulse
   if(1 == m_isNotFirstPulse){
-  //Calculate timing for last period
-  unsigned int tempPeriod =   tempCCR ;
-  tempPeriod             += (m_rolloverCount * (EFI_TCC_MAX));
-  tempPeriod             -= m_lastCCR;
+    //Calculate timing for last period
+    unsigned int tempPeriod =   tempCCR ;
+    tempPeriod             += (m_rolloverCount * (EFI_TCC_MAX));
+    tempPeriod             -= m_lastCCR;
 
-  m_rolloverCount         =   0;         
-  //RPM conversion
-  unsigned int tempRPM    =  (EFI_RPM_CONVERSION_RATIO/tempPeriod);
+    m_rolloverCount         =   0;         
+    //RPM conversion
+    unsigned int tempRPM    =  (EFI_RPM_CONVERSION_RATIO/tempPeriod);
 
-  //Store in the data struct
-  Sensors.RPM             =   tempRPM;
-  Sensors.Period          =   tempPeriod;
+    //Store in the data struct
+    Sensors.RPM             =   tempRPM;
+    Sensors.Period          =   tempPeriod;
 
-  if((100 < tempRPM)){
-    //Calculate next time for spark
-    unsigned int tempSparkStart = 
-        (tempPeriod *(EFI_DEGREES_PER_NE + 
-                      EFI_DISTRIBUTOR_ADVANCE - 
-                      EFI_DEFAULT_ADVANCE))/18000;
-    tempSparkStart += tempCCR;                    //Offset
-    tempSparkStart -= EFI_IGNITION_DWELL_CCR;     //Subtract dwell
-    tempSparkStart  = tempSparkStart & EFI_TCC_MAX; //Constrain it to timer limits
+    if((100 < tempRPM)){
+      //Calculate next time for spark
+      unsigned int tempSparkStart = 
+          (tempPeriod *(EFI_DEGREES_PER_NE + 
+                        EFI_DISTRIBUTOR_ADVANCE - 
+                        EFI_DEFAULT_ADVANCE))/18000;
+      tempSparkStart += tempCCR;                    //Offset
+      tempSparkStart -= EFI_IGNITION_DWELL_CCR;     //Subtract dwell
+      tempSparkStart  = tempSparkStart & EFI_TCC_MAX; //Constrain it to timer limits
 
-    //Load value directly into timer if FSM is idle
-    //Catch instance where timer got stuck
-    if((EFI_TCC_MAX + 1) == m_igniterStartCCR){
-      if(IGT_IDLE == m_Igniter){
-        EFI_TCC->CC[EFI_TCC_IGT_CC_NUM].reg = 
-            tempSparkStart;
+      //Load value directly into timer if FSM is idle
+      //Catch instance where timer got stuck
+      if((EFI_TCC_MAX + 1) == m_igniterStartCCR){
+        if(IGT_IDLE == m_Igniter){
+          EFI_TCC->CC[EFI_TCC_IGT_CC_NUM].reg = 
+              tempSparkStart;
+          //Enable interrupts after clearing interrupt flags
+          EFI_TCC->INTFLAG.reg  = 
+              EFI_TCC_IGT_IFG;
+          EFI_TCC->INTENSET.reg = 
+              EFI_TCC_IGT_IFG;
+          //Set FSM to waiting
+          m_Igniter             = IGT_WAITING;
+          m_igniterStartCCR     = EFI_TCC_MAX + 1;
+        }else{//Load CCR is a buffer register for when FSM is ready
+          //Check that data can be loaded
+          m_igniterStartCCR = tempSparkStart;
+        }
+      }else{//There should never be an instance where we calculate two in a row
+        //before igniter goes off
+        PORT->Group[EFI_IGT_GROUP].OUTCLR.reg = 
+            (1 << EFI_IGT_PIN);
+        m_igniterStartCCR = EFI_TCC_MAX + 1;
         //Enable interrupts after clearing interrupt flags
         EFI_TCC->INTFLAG.reg  = 
             EFI_TCC_IGT_IFG;
-        EFI_TCC->INTENSET.reg = 
+        EFI_TCC->INTENCLR.reg = 
             EFI_TCC_IGT_IFG;
         //Set FSM to waiting
-        m_Igniter             = IGT_WAITING;
-        m_igniterStartCCR     = EFI_TCC_MAX + 1;
-      }else{//Load CCR is a buffer register for when FSM is ready
-        //Check that data can be loaded
-        m_igniterStartCCR = tempSparkStart;
-      }
-    }else{//There should never be an instance where we calculate two in a row
-      //before igniter goes off
-      PORT->Group[EFI_IGT_GROUP].OUTCLR.reg = 
-          (1 << EFI_IGT_PIN);
-      m_igniterStartCCR = EFI_TCC_MAX + 1;
-      //Enable interrupts after clearing interrupt flags
-      EFI_TCC->INTFLAG.reg  = 
-          EFI_TCC_IGT_IFG;
-      EFI_TCC->INTENCLR.reg = 
-          EFI_TCC_IGT_IFG;
-      //Set FSM to waiting
-      m_Igniter                  = IGT_IDLE;
-    }            
+        m_Igniter                  = IGT_IDLE;
+      }            
 
-    //Process Ne for location
-    if(5 != m_currentNe)    m_currentNe = (m_currentNe + 1) & 0x3;
-    if(1 == m_nextNeIsStart)m_currentNe = 0;
-    m_nextNeIsStart = false;
-    //Injection stuff
-    if(EFI_FUEL_CUT_RPM > tempRPM){
-      INJECTOR_CALC_LABEL:
-      unsigned int tempInjectionTime = getInjectionTime();
-      int cyc_req = (1 + tempInjectionTime/tempPeriod);
-      //get 180's left (& 0x3 prevents result from being larger than 3)
-      int cyc_left = (m_injectorTargets[m_injectorNumber] - m_currentNe) & 0x3;
-      //late case
-      if (-1 == (cyc_left - cyc_req)){
-        //Fire now
-        //Send output high
-        //Set CC to current capture + pulse time
-        //Clear flag
-        //Enable interrupt
-        EFI_TCC->CC[EFI_TCC_INJ_CC_BASE + m_injectorNumber].reg = 
-            (EFI_TCC->CC[EFI_TCC_NE_CC_NUM].reg + tempInjectionTime)& EFI_TCC_MAX;
+      //Process Ne for location
+      if(5 != m_currentNe)    m_currentNe = (m_currentNe + 1)& 0x3;
+      if(1 == m_nextNeIsStart)m_currentNe = 0;
+      m_nextNeIsStart = false;
+      //Injection stuff
+      if(EFI_FUEL_CUT_RPM > tempRPM){
+        INJECTOR_CALC_LABEL:
+        unsigned int tempInjectionTime = getInjectionTime();
+        int cyc_req = (1 + tempInjectionTime/tempPeriod);
+        //get 180's left (& 0x3 prevents result from being larger than 3)
+        int cyc_left = (m_injectorTargets[m_injectorNumber] - m_currentNe) & 0x3;
+        //late case
+        if (-1 == (cyc_left - cyc_req)){
+          //Fire now
+          //Send output high
+          //Set CC to current capture + pulse time
+          //Clear flag
+          //Enable interrupt
+          EFI_TCC->CC[EFI_TCC_INJ_CC_BASE + m_injectorNumber].reg = 
+              (EFI_TCC->CC[EFI_TCC_NE_CC_NUM].reg + tempInjectionTime)& EFI_TCC_MAX;
 
-        m_Injector[m_injectorNumber] = INJ_IDLE; 
-        switch(m_injectorNumber){
-          case 0:
-          PORT->Group[EFI_INJ0_GROUP].OUTSET.reg  = 
-              (1 << EFI_INJ0_PIN);
-          EFI_TCC->INTFLAG.reg  = 
-              EFI_TCC_INJ0_IFG;
-          EFI_TCC->INTENSET.reg = 
-              EFI_TCC_INJ0_IFG;
-          break;
+          m_Injector[m_injectorNumber] = INJ_IDLE; 
+          switch(m_injectorNumber){
+            case 0:
+            PORT->Group[EFI_INJ0_GROUP].OUTSET.reg  = 
+                (1 << EFI_INJ0_PIN);
+            EFI_TCC->INTFLAG.reg  = 
+                EFI_TCC_INJ0_IFG;
+            EFI_TCC->INTENSET.reg = 
+                EFI_TCC_INJ0_IFG;
+            break;
 
-          case 1:
-          PORT->Group[EFI_INJ1_GROUP].OUTSET.reg = 
-              (1 << EFI_INJ1_PIN);
-          EFI_TCC->INTFLAG.reg  = 
-              EFI_TCC_INJ1_IFG;
-          EFI_TCC->INTENSET.reg = 
-              EFI_TCC_INJ1_IFG;
-          break;
+            case 1:
+            PORT->Group[EFI_INJ1_GROUP].OUTSET.reg = 
+                (1 << EFI_INJ1_PIN);
+            EFI_TCC->INTFLAG.reg  = 
+                EFI_TCC_INJ1_IFG;
+            EFI_TCC->INTENSET.reg = 
+                EFI_TCC_INJ1_IFG;
+            break;
 
-          case 2:
-          PORT->Group[EFI_INJ2_GROUP].OUTSET.reg = 
-              (1 << EFI_INJ2_PIN);
-          EFI_TCC->INTFLAG.reg  = 
-              EFI_TCC_INJ2_IFG;
-          EFI_TCC->INTENSET.reg = 
-              EFI_TCC_INJ2_IFG;
-          break;
+            case 2:
+            PORT->Group[EFI_INJ2_GROUP].OUTSET.reg = 
+                (1 << EFI_INJ2_PIN);
+            EFI_TCC->INTFLAG.reg  = 
+                EFI_TCC_INJ2_IFG;
+            EFI_TCC->INTENSET.reg = 
+                EFI_TCC_INJ2_IFG;
+            break;
 
-          case 3:
-          PORT->Group[EFI_INJ3_GROUP].OUTSET.reg = 
-              (1 << EFI_INJ3_PIN);
-          EFI_TCC->INTFLAG.reg  = 
-              EFI_TCC_INJ3_IFG;
-          EFI_TCC->INTENSET.reg = 
-              EFI_TCC_INJ3_IFG;
-          break;
-          default:  //Should never get here
-          m_injectorNumber = 0;
+            case 3:
+            PORT->Group[EFI_INJ3_GROUP].OUTSET.reg = 
+                (1 << EFI_INJ3_PIN);
+            EFI_TCC->INTFLAG.reg  = 
+                EFI_TCC_INJ3_IFG;
+            EFI_TCC->INTENSET.reg = 
+                EFI_TCC_INJ3_IFG;
+            break;
+            default:  //Should never get here
+            m_injectorNumber = 0;
+          }
+          m_injectorNumber = (m_injectorNumber + 1)& 0x03;
+          
+          //Restart calculation for next injector in case another starts now
+          goto INJECTOR_CALC_LABEL;
+          
+        }else if(0 == (cyc_left - cyc_req)){//on time case, if neither true don't calculate
+          //increment CC register
+          EFI_TCC->CC[EFI_TCC_INJ_CC_BASE + m_injectorNumber].reg =  
+              (EFI_TCC->CC[EFI_TCC_NE_CC_NUM].reg + (cyc_req * tempPeriod - tempInjectionTime)) 
+              & EFI_TCC_MAX;
+          //Enable interrupts after clearing interrupt flags
+          m_Injector[m_injectorNumber] = INJ_WAITING; 
+          switch(m_injectorNumber){
+            case 0:
+            EFI_TCC->INTFLAG.reg  = 
+                EFI_TCC_INJ0_IFG;
+            EFI_TCC->INTENSET.reg = 
+                EFI_TCC_INJ0_IFG;
+            break;
+
+            case 1:
+            EFI_TCC->INTFLAG.reg  = 
+                EFI_TCC_INJ1_IFG;
+            EFI_TCC->INTENSET.reg = 
+                EFI_TCC_INJ1_IFG;
+            break;
+
+            case 2:
+            EFI_TCC->INTFLAG.reg  = 
+                EFI_TCC_INJ2_IFG;
+            EFI_TCC->INTENSET.reg = 
+                EFI_TCC_INJ2_IFG;
+            break;
+
+            case 3:
+            EFI_TCC->INTFLAG.reg  = 
+                EFI_TCC_INJ3_IFG;
+            EFI_TCC->INTENSET.reg = 
+                EFI_TCC_INJ3_IFG;
+            break;
+            default:  //Should never get here
+            m_injectorNumber = 0;
+          }
+          m_injectorNumber = (m_injectorNumber + 1)& 0x03;
+          //Restart calculation for next injector in case another starts now
+          goto INJECTOR_CALC_LABEL;
         }
-        m_injectorNumber = (m_injectorNumber + 1)& 0x03;
-        
-        //Restart calculation for next injector in case another starts now
-        goto INJECTOR_CALC_LABEL;
-        
-      }else if(0 == (cyc_left - cyc_req)){//on time case, if neither true don't calculate
-        //increment CC register
-        EFI_TCC->CC[EFI_TCC_INJ_CC_BASE + m_injectorNumber].reg =  
-            (EFI_TCC->CC[EFI_TCC_NE_CC_NUM].reg + (cyc_req * tempPeriod - tempInjectionTime)) 
-            & EFI_TCC_MAX;
-        //Enable interrupts after clearing interrupt flags
-        m_Injector[m_injectorNumber] = INJ_WAITING; 
-        switch(m_injectorNumber){
-          case 0:
-          EFI_TCC->INTFLAG.reg  = 
-              EFI_TCC_INJ0_IFG;
-          EFI_TCC->INTENSET.reg = 
-              EFI_TCC_INJ0_IFG;
-          break;
-
-          case 1:
-          EFI_TCC->INTFLAG.reg  = 
-              EFI_TCC_INJ1_IFG;
-          EFI_TCC->INTENSET.reg = 
-              EFI_TCC_INJ1_IFG;
-          break;
-
-          case 2:
-          EFI_TCC->INTFLAG.reg  = 
-              EFI_TCC_INJ2_IFG;
-          EFI_TCC->INTENSET.reg = 
-              EFI_TCC_INJ2_IFG;
-          break;
-
-          case 3:
-          EFI_TCC->INTFLAG.reg  = 
-              EFI_TCC_INJ3_IFG;
-          EFI_TCC->INTENSET.reg = 
-              EFI_TCC_INJ3_IFG;
-          break;
-          default:  //Should never get here
-          m_injectorNumber = 0;
-        }
-        m_injectorNumber = (m_injectorNumber + 1)& 0x03;
-        //Restart calculation for next injector in case another starts now
-        goto INJECTOR_CALC_LABEL;
+      }else{//Fuel cut
+        //Turn off all injectors
+        PORT->Group[EFI_INJ0_PIN].OUTCLR.reg  = 
+            (1 << EFI_INJ0_PIN);
+        PORT->Group[EFI_INJ1_PIN].OUTCLR.reg  = 
+            (1 << EFI_INJ1_PIN);
+        PORT->Group[EFI_INJ2_PIN].OUTCLR.reg  = 
+            (1 << EFI_INJ2_PIN);
+        PORT->Group[EFI_INJ3_PIN].OUTCLR.reg  = 
+            (1 << EFI_INJ3_PIN);
+        //Set all FSMs to IDLE
+        m_Injector[0]   = INJ_IDLE;
+        m_Injector[1]   = INJ_IDLE;
+        m_Injector[2]   = INJ_IDLE;
+        m_Injector[3]   = INJ_IDLE;
       }
-    }else{//Fuel cut
-      //Turn off all injectors
-      PORT->Group[EFI_INJ0_PIN].OUTCLR.reg  = 
-          (1 << EFI_INJ0_PIN);
-      PORT->Group[EFI_INJ1_PIN].OUTCLR.reg  = 
-          (1 << EFI_INJ1_PIN);
-      PORT->Group[EFI_INJ2_PIN].OUTCLR.reg  = 
-          (1 << EFI_INJ2_PIN);
-      PORT->Group[EFI_INJ3_PIN].OUTCLR.reg  = 
-          (1 << EFI_INJ3_PIN);
-      //Set all FSMs to IDLE
-      m_Injector[0]   = INJ_IDLE;
-      m_Injector[1]   = INJ_IDLE;
-      m_Injector[2]   = INJ_IDLE;
-      m_Injector[3]   = INJ_IDLE;
+    }else{//Handles case of loss of NE
+      //Send spark low, clear out 
+      m_Igniter                               = IGT_IDLE;
+      //Disable interrupt, send pin low
+      EFI_TCC->INTENCLR.reg = EFI_TCC_IGT_IFG;
+      PORT->Group[EFI_IGT_GROUP].OUTCLR.reg   = (1 << EFI_IGT_PIN);
+      m_igniterStartCCR   = EFI_TCC_MAX + 1;
+      m_isNotFirstPulse   = 0;
+      m_nextNeIsStart     = 0;
+      m_currentNe         = 5;
+      m_injectorNumber    = 0;
     }
-  }else{//Handles case of loss of NE
-    //Send spark low, clear out 
-    m_Igniter                               = IGT_IDLE;
-    //Disable interrupt, send pin low
-    EFI_TCC->INTENCLR.reg = EFI_TCC_IGT_IFG;
-    PORT->Group[EFI_IGT_GROUP].OUTCLR.reg   = (1 << EFI_IGT_PIN);
-    m_igniterStartCCR   = EFI_TCC_MAX + 1;
-    m_isNotFirstPulse   = 0;
-    m_nextNeIsStart     = 0;
-    m_currentNe         = 5;
-    m_injectorNumber    = 0;
-  }
 
   }else{
   m_isNotFirstPulse = 1; 

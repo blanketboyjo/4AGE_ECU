@@ -20,21 +20,6 @@
 #include "Pins.h"
 #include "Sensors.h"
 
-//These values are for throwing errors
-#define THROTTLE_MAX    0xFFF
-#define THROTTLE_MIN    0
-#define THROTTLE_SAFE   0
-#define AIR_FLOW_MAX    0xFFF
-#define AIR_FLOW_MIN    0
-#define AIR_FLOW_SAFE   0
-#define AIR_TEMP_MAX    0xFFF
-#define AIR_TEMP_MIN    0
-#define AIR_TEMP_SAFE   0
-#define WATER_TEMP_MAX  0xFFF
-#define WATER_TEMP_MIN  0
-#define WATER_TEMP_SAFE 0
-
-#define ANALOG_INTERRUPT_PRIORITY 2
 
 
 

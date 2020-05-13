@@ -24,14 +24,34 @@
 #define EFI_NE_OVF_PRIORITY         3
 #define DASHBOARD_ISR_PRIORITY      6
 #define TERMINAL_ISR_PRIORITY       5
-#define IDLE_SW_ISR_PRIORITY        3
-#define START_SW_ISR_PRIORITY       3
+#define SENSORS_ISR_PRIORITY        3
+
 
 /*****************************************************************************
  *
- *                              Analog Pins
+ *                              
  *
 ******************************************************************************/
+
+
+/*****************************************************************************
+ *
+ *                              Analog Pins/Config
+ *
+******************************************************************************/
+//These values are for throwing errors
+#define THROTTLE_MAX    12412
+#define THROTTLE_MIN    250
+#define THROTTLE_SAFE   0
+#define AIR_FLOW_MAX    12420
+#define AIR_FLOW_MIN    3000
+#define AIR_FLOW_SAFE   0
+#define AIR_TEMP_MAX    2300
+#define AIR_TEMP_MIN    300
+#define AIR_TEMP_SAFE   0
+#define WATER_TEMP_MAX  2300
+#define WATER_TEMP_MIN  300
+#define WATER_TEMP_SAFE 0
 
 
 //PA03 uses ADC0
@@ -153,7 +173,7 @@
 #define EFI_IGNITION_DWELL_TIME     500
 #define EFI_IGNITION_SPARK_TIME     70
 #define EFI_INJECTOR_DWELL_TIME     100      
-#define EFI_INJECTOR_ON_TIME        850
+#define EFI_INJECTOR_ON_TIME_VE     1290
 #define EFI_FUEL_CUT_RPM            3000
 
 //Converts time to timer counts
@@ -311,7 +331,7 @@
 #define DASHBOARD_TC_START_BUS  MCLK->APBAMASK.bit.TC0_ = 1;
 #define DASHBOARD_TC_GLK_SOURCE GCLK_PCHCTRL_GEN_GCLK1
 #define DASHBOARD_TC_PCLK       TC0_GCLK_ID
-#define DASHBOARD_TC_PRESCALE   TC_CTRLA_PRESCALER_DIV64
+#define DASHBOARD_TC_PRESCALE   TC_CTRLA_PRESCALER_DIV256
 
 #define DASHBOARD_TC_IRQN       TC0_IRQn
 #define DASHBOARD_TC_ISR        TC0_Handler
@@ -319,42 +339,40 @@
 
 /*****************************************************************************
  *
- *                          Uncategorized Pins
+ *                          Sensors.h Config/Pins
  *
  *****************************************************************************/
 
+#define SENSORS_TC            TC1
+#define SENSORS_TC_START_BUS  MCLK->APBAMASK.bit.TC1_ = 1;
+#define SENSORS_TC_GLK_SOURCE GCLK_PCHCTRL_GEN_GCLK0
+#define SENSORS_TC_PCLK       TC1_GCLK_ID
+#define SENSORS_TC_PRESCALE   TC_CTRLA_PRESCALER_DIV1
+#define SENSORS_TC_ISR        TC1_Handler
+#define SENSORS_TC_IRQN       TC1_IRQn
+
 //Idle switch is PA21
-#define IDLE_SW_EIC         5
-#define IDLE_SW_EIC_CONFIG  EIC->CONFIG[0].reg &= ~(EIC_CONFIG_SENSE5_Msk); \
-                            EIC->CONFIG[0].reg |= (EIC_CONFIG_SENSE5_BOTH);
 #define IDLE_SW_PIN         21
 #define IDLE_SW_GROUP       0
-#define IDLE_SW_PMUX        PMUX_FUNC_A
-#define IDLE_SW_CONFIG      PIN_CONFIG_PMUXO(IDLE_SW_PIN ,      \
-                                             IDLE_SW_CONFIG,    \
-                                             IDLE_SW_PMUX)
+#define IDLE_SW_CONFIG      PIN_CONFIG_INPUT(IDLE_SW_PIN, \
+                                             IDLE_SW_GROUP)
+//O2 sensor is PB17
+#define OX_PIN              17
+#define OX_GROUP            1
+#define OX_CONFIG           PIN_CONFIG_INPUT(OX_PIN,\
+                                             OX_GROUP)
 
 //Start switch is PA20
-#define START_SW_EIC        4
-#define START_SW_EIC_CONFIG EIC->CONFIG[0].reg &= ~(EIC_CONFIG_SENSE4_Msk); \
-                            EIC->CONFIG[0].reg |= (EIC_CONFIG_SENSE4_FALL);
 #define START_SW_PIN        20
 #define START_SW_GROUP      0
-#define START_SW_PMUX       PMUX_FUNC_A
-#define START_SW_CONFIG     PIN_CONFIG_PMUXE(START_SW_PIN,      \
-                                             START_SW_CONFIG,   \
-                                             START_SW_PMUX)
+#define START_SW_CONFIG     PIN_CONFIG_INPUT(START_SW_PIN,      \
+                                             START_SW_GROUP)
 
 //Engine On Pin is PB09
-#define ENGINE_ON_EIC       9
-#define ENGINE_ON_EIC_CONFIG EIC->CONFIG[1].reg &= ~(EIC_CONFIG_SENSE1_Msk); \
-                            EIC->CONFIG[1].reg |= (EIC_CONFIG_SENSE1_RISE);
 #define ENGINE_ON_PIN       9
 #define ENGINE_ON_GROUP     1
-#define ENGINE_ON_PMUX      PMUX_FUNC_A
-#define ENGINE_ON_CONFIG    PIN_CONFIG_PMUXO(ENGINE_ON_PIN,     \
-                                             ENGINE_ON_GROUP,   \
-                                             ENGINE_ON_PMUX)
+#define ENGINE_ON_CONFIG    PIN_CONFIG_INPUT(ENGINE_ON_PIN,     \
+                                             ENGINE_ON_GROUP)
       
 
 //Stay powered pin is PA18

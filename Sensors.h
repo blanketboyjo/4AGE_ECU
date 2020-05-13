@@ -8,7 +8,8 @@
  * Dependencies:(See each library for additional dependencies)
  *  Analog.h    - Throttle, Air temp, water temp
  *  Pressure.h  - Manifold Sensor
- *  Pins.h      - Used 
+ *  Pins.h      - Has configuration 
+ *  TC          - Utilized to schedule gpio sampling (see pins.h
  *  
  *
  * Created: 5/6/2019 10:25:54 AM
@@ -20,6 +21,7 @@
 #define SENSORS_H_
 
 #include "sam.h"
+#include "Pins.h"
 #include "Analog.h"
 #include "Pressure.h"
 
@@ -33,6 +35,7 @@ struct SensorValues{
     unsigned int Period;
     unsigned int IsCranking;
     unsigned int ThrottleClosed;
+    unsigned int Oxygen;
 };
 extern volatile SensorValues Sensors;
 
@@ -40,6 +43,5 @@ extern volatile SensorValues Sensors;
 void sensorsConfig(void);
 void sensorsStart(void);
 void sensorsHalt(void);
-
 
 #endif /* SENSORS_H_ */

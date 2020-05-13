@@ -19,29 +19,29 @@
 
 
 #define DASHBOARD_IDLE_LABEL                0   ,   2
-#define DASHBOARD_IDLE_DATA                 15  ,   2
+#define DASHBOARD_IDLE_DATA                 17  ,   2
 
 #define DASHBOARD_RPM_LABEL                 0   ,   3
-#define DASHBOARD_RPM_DATA                  15  ,   3
+#define DASHBOARD_RPM_DATA                  17  ,   3
 
 #define DASHBOARD_ADVANCE_LABEL             0   ,   4
-#define DASHBOARD_ADVANCE_DATA              15  ,   4
+#define DASHBOARD_ADVANCE_DATA              17  ,   4
 
 #define DASHBOARD_PRESSURE_LABEL            0   ,   5
-#define DASHBOARD_PRESSURE_DATA             15  ,   5
+#define DASHBOARD_PRESSURE_DATA             17  ,   5
 
 #define DASHBOARD_AIR_TEMP_LABEL            0   ,   6
-#define DASHBOARD_AIR_TEMP_DATA             15  ,   6
+#define DASHBOARD_AIR_TEMP_DATA             17  ,   6
 
 #define DASHBOARD_WATER_TEMP_LABEL          0   ,   7
-#define DASHBOARD_WATER_TEMP_DATA           15  ,   7
+#define DASHBOARD_WATER_TEMP_DATA           17  ,   7
 
 #define DASHBOARD_THROTTLE_LABEL            0   ,   8
-#define DASHBOARD_THROTTLE_DATA             15  ,   8
+#define DASHBOARD_THROTTLE_DATA             17  ,   8
 #define DASHBOARD_IDLE_SW_DATA              25  ,   8
 
 #define DASHBOARD_AFM_LABEL                 0   ,   9
-#define DASHBOARD_AFM_DATA                  15  ,   9
+#define DASHBOARD_AFM_DATA                  17  ,   9
 
 
 
@@ -214,11 +214,13 @@ void m_setAttribute(VT100_ATTRIBUTE atr){
 //This function converts a unsigned fixed point to signed
 void m_printUintValue(unsigned int value, int length, int decimalPlaces = -1){
   //Return if length is > DASHBOARD_ARRAY_LIMIT, or is 0
-  if(((DASHBOARD_ARRAY_LIMIT - 1) < length) || (0 >= length))return;
+    if(((DASHBOARD_ARRAY_LIMIT - 1) < length) || (0 >= length))return;
 
+  //Load a 0 into the lowest digit
+  
   //Increment length by 1 to account for decimal place
   if(-1 != decimalPlaces)length ++;    
-
+  
   //Loop i until it matches the desired length
   for(int i = 0; i<= length; i++){
     //Blank if all zeros and passed decimal point
@@ -227,7 +229,11 @@ void m_printUintValue(unsigned int value, int length, int decimalPlaces = -1){
         m_buffer[length - i]    =  (value % 10) + '0';
         value                   =   value / 10;
       }else{
-        m_buffer[length - i]    =   ' ';
+        if(0 == i){
+          m_buffer[length - i]  =   '0';  
+        }else{
+          m_buffer[length - i]  =   ' ';
+        } 
       }
     }else if(i < decimalPlaces){
       m_buffer[length - i]        =  (value % 10) + '0';
@@ -263,7 +269,11 @@ void m_printIntValue(int value, int length, int decimalPlaces = -1){
         m_buffer[length - i]    =  (value % 10) + '0';
         value                   =   value / 10;
       }else{
-        m_buffer[length - i]    =   ' ';
+        if(0 == i){
+          m_buffer[length - i]  =   '0';  
+        }else{
+          m_buffer[length - i]  =   ' ';
+        } 
       }
     }else if(i < decimalPlaces){
       m_buffer[length - i]        =  (value % 10) + '0';
@@ -279,7 +289,11 @@ void m_printIntValue(int value, int length, int decimalPlaces = -1){
 
 //This function places all of the necessary labels in place
 void m_printLabels(void){
+
   m_clearTerminal(SCREEN);
+  //Go home and set color to white
+  m_moveCursorTo(0,0);
+  m_setFontColor(WHITE);
   m_moveCursorTo(DASHBOARD_TITLE);
 
   //Print Title
@@ -301,18 +315,9 @@ void m_printLabels(void){
   m_buffer[1]     = 'd';
   m_buffer[2]     = 'l';
   m_buffer[3]     = 'e';
-  m_buffer[4]     = ' ';
-  m_buffer[5]     = 'T';
-  m_buffer[6]     = 'a';
-  m_buffer[7]     = 'r';
-  m_buffer[8]     = 'g';
-  m_buffer[9]     = 'e';
-  m_buffer[10]    = 't';
-  m_buffer[11]    = ':';
-  terminalSendStream(m_buffer,12); 
+  m_buffer[4]     = ':';
+  terminalSendStream(m_buffer,5); 
 
-  m_moveCursorTo(DASHBOARD_IDLE_DATA);
-  m_printUintValue(EFI_FUEL_CUT_RPM,4);
 
   m_moveCursorTo(DASHBOARD_RPM_LABEL);
   m_buffer[0]     = 'C';
@@ -366,7 +371,7 @@ void m_printLabels(void){
   m_buffer[6]     = 'm';
   m_buffer[7]     = 'p';
   m_buffer[8]     = ':';
-  terminalSendStream(m_buffer,19);
+  terminalSendStream(m_buffer,9);
 
   m_moveCursorTo(DASHBOARD_WATER_TEMP_LABEL);
   m_buffer[0]     = 'W';
@@ -398,23 +403,23 @@ void m_printLabels(void){
   m_buffer[0]     = 'A';
   m_buffer[1]     = 'i';
   m_buffer[2]     = 'r';
-  m_buffer[3]     = ' ';
-  m_buffer[4]     = 'f';
-  m_buffer[5]     = 'l';
-  m_buffer[6]     = 'o';
-  m_buffer[7]     = 'w';
-  m_buffer[8]     = ' ';
-  m_buffer[9]     = 'M';
-  m_buffer[10]    = 'e';
-  m_buffer[11]    = 't';
-  m_buffer[12]    = 'e';
-  m_buffer[13]    = 'r';
-  m_buffer[14]    = ':';
-  terminalSendStream(m_buffer,15);
+  m_buffer[3]     = 'f';
+  m_buffer[4]     = 'l';
+  m_buffer[5]     = 'o';
+  m_buffer[6]     = 'w';
+  m_buffer[7]     = ' ';
+  m_buffer[8]     = 'M';
+  m_buffer[9]     = 'e';
+  m_buffer[10]    = 't';
+  m_buffer[11]    = 'e';
+  m_buffer[12]    = 'r';
+  m_buffer[13]    = ':';
+  terminalSendStream(m_buffer,14);
 }
 
 //Updates all the values
 void m_dashboardUpdate(void){
+
   //Print AFM
   m_moveCursorTo(DASHBOARD_AFM_DATA);
   m_printUintValue(Sensors.AirFlow,4);
@@ -429,7 +434,11 @@ void m_dashboardUpdate(void){
 
   //Print water temp
   m_moveCursorTo(DASHBOARD_WATER_TEMP_DATA);
-  m_printUintValue(Sensors.WaterTemp,4);
+  m_printUintValue(Sensors.WaterTemp,6,3);
+
+  //Print target idle  
+  m_moveCursorTo(DASHBOARD_IDLE_DATA);
+  m_printUintValue(getIdle(),4);
 
   //Print RPM
   m_moveCursorTo(DASHBOARD_RPM_DATA);
@@ -460,9 +469,10 @@ void m_dashboardUpdate(void){
     terminalSendStream(m_buffer,6);
   }
 
-    m_moveCursorTo(DASHBOARD_ADVANCE_DATA);
-    m_printIntValue(getIgnitionAdvance(),4,2);
+  m_moveCursorTo(DASHBOARD_ADVANCE_DATA);
+  m_printIntValue(getIgnitionAdvance(),4,2);
 
+  
   }
 
  
@@ -477,8 +487,7 @@ void dashboardConfig(void){
 
   //Ensure the terminal is configured
   terminalConfig();
-  m_moveCursorTo(0,0);
-  m_setFontColor(WHITE);
+
   m_printLabels();
 
   //Setup update timer

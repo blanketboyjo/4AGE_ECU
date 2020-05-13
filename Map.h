@@ -20,7 +20,7 @@
 
 int          getIgnitionAdvance(void);
 unsigned int getInjectionTime(void);
-
+unsigned int getIdle(void);
 
 
 #endif /* MAP_H_ */

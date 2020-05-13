@@ -7,7 +7,8 @@
 #include "Analog.h"
 //Local variable for if the system is running
 int m_analogRunning;
-
+unsigned int m_rawWaterTemp;
+unsigned int m_rawAirTemp;
 
 
 //This will setup the necessary systems
@@ -20,7 +21,6 @@ void analogConfig(void){
   Sensors.AirTemp     = 0;
   Sensors.WaterTemp   = 0;
   Sensors.Throttle    = 0;
-
   //Setup pins
   AIR_TEMP_CONFIG;
   AIR_FLOW_METER_CONFIG;
@@ -218,9 +218,18 @@ void ADC1_1_Handler(void){
       Sensors.WaterTemp = WATER_TEMP_SAFE;
       
     }else{
-      //Load data
-      Sensors.WaterTemp = adcValue;
-      
+      //Calculate temperature
+      if(adcValue < 488){         //176-212
+        Sensors.WaterTemp = 277930 - (adcValue * 209);
+      }else if(adcValue < 566){   //140-176'
+        Sensors.WaterTemp = 400769 - (adcValue * 462);       
+      }else if(adcValue < 836){   //104 - 140
+        Sensors.WaterTemp = 215333 - (adcValue * 133);
+      }else if(adcValue < 1309){  //68 - 104
+        Sensors.WaterTemp = 167552 - (adcValue * 76); 
+      }else{//32-68
+        Sensors.WaterTemp = 126934 - (adcValue * 45);
+      }
     }
     //Load next ADCMUX for next conversion
     ADC1->INPUTCTRL.reg = THROTTLE_AMUX;
@@ -243,6 +252,7 @@ void ADC1_1_Handler(void){
       //Load data
       Sensors.Throttle = adcValue;
     }
+
     //Load next ADCMUX for next conversion
     ADC1->INPUTCTRL.reg = AIR_TEMP_AMUX;
     //Only start next conversion if analog should be running
